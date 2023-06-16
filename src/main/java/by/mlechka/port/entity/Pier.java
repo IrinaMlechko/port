@@ -1,13 +1,15 @@
-package by.mlechka.composite.entity;
+package by.mlechka.port.entity;
+
+import java.util.UUID;
 
 public class Pier {
-    private int id;
+    private UUID id;
 
-    public Pier(int id) {
-        this.id = id;
+    public Pier() {
+        this.id = UUID.randomUUID();
     }
 
-    public int getId() {
+    public UUID getId() {
         return id;
     }
 }

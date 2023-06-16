@@ -1,6 +1,6 @@
-package by.mlechka.composite.factory;
+package by.mlechka.port.factory;
 
-import by.mlechka.composite.entity.Ship;
+import by.mlechka.port.entity.Ship;
 
 import java.util.ArrayList;
 import java.util.List;
