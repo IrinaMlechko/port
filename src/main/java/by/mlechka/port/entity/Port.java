@@ -1,46 +1,150 @@
 package by.mlechka.port.entity;
 
+import by.mlechka.port.type.Action;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.util.ArrayDeque;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class Port {
-    public static final int AMOUNT_OF_PIERS = 10;
-    private static Port port;
+    public static final int AMOUNT_OF_PIERS = 3;
+    public static final int TIME_FOR_ONE_CONTAINER = 2;
+    static Logger logger = LogManager.getLogger();
+    private static Port instance;
     private static Lock lock = new ReentrantLock(true);
     private static AtomicBoolean isCreated = new AtomicBoolean();
     private ArrayDeque<Pier> piers;
+    private int capacity = 10;
+    private AtomicInteger currentAmountOfContainers = new AtomicInteger(10);
 
     public Port() {
         piers = new ArrayDeque<>(AMOUNT_OF_PIERS);
-        Pier pier = new Pier();
-        piers.add(pier);
+        for (int i = 0; i < AMOUNT_OF_PIERS; i++) {
+            Pier pier = new Pier();
+            piers.add(pier);
+        }
     }
 
     public static Port getInstance() {
-        if (port == null) {
+        if (instance == null) {
             try {
                 lock.lock();
                 if (!isCreated.get()) {
-                    port = new Port();
+                    instance = new Port();
                     isCreated.set(true);
                 }
             } finally {
                 lock.unlock();
             }
         }
-        return port;
+        return instance;
     }
 
-    public Pier getPier(){
-        Pier pier;
-        lock.lock();
-        try{
-            pier = piers.poll();
-        } finally {
-            lock.unlock();
+    public Pier acquirePier() throws InterruptedException {
+        return getAvailablePier();
+    }
+
+    public void releasePier(Pier pier) {
+        pier.setAvailable(true);
+    }
+
+    private Pier getAvailablePier() {
+        for (Pier pier : piers) {
+            if (pier.isAvailable()) {
+                pier.setAvailable(false);
+                return pier;
+            }
         }
-        return pier;
+        return null;
+    }
+
+    public void processShip(Ship ship) throws InterruptedException {
+        logger.debug("run started. ship " + ship.getId());
+        if (!isActionAllowed(ship)) {
+            logger.info("Ship {} is waiting for action: {}", ship.getId(), ship.getActionType());
+            return;
+        }
+        Pier pier = null;
+        try {
+            pier = getAvailablePier();
+            if (pier != null) {
+                pier.setAvailable(false);
+//                pier.setShip(ship);
+                logger.info(String.format("Ship with id %s docked to the pier %s", ship.getId(), pier.getId()));
+                performAction(ship, pier);
+            }
+        } finally {
+            if (pier != null) {
+                pier.setAvailable(true);
+//                pier.setShip(null);
+            }
+        }
+    }
+
+
+    private boolean isActionAllowed(Ship ship) {
+        Action actionType = ship.getActionType();
+        if (actionType == Action.LOAD) {
+            int availableContainers = currentAmountOfContainers.get();
+            return availableContainers >= ship.getCapacity();
+        } else if (actionType == Action.UNLOAD) {
+            int availableSpace = capacity - currentAmountOfContainers.get();
+            return availableSpace >= ship.getCurrentAmountOfContainers();
+        } else if (actionType == Action.LOAD_UNLOAD) {
+            int availableSpace = capacity - currentAmountOfContainers.get();
+            int availableContainers = currentAmountOfContainers.get();
+            return availableContainers >= ship.getCapacity() && availableSpace >= ship.getCurrentAmountOfContainers();
+        }
+        return false;
+    }
+
+    private void performAction(Ship ship, Pier pier) throws InterruptedException {
+        logger.info("Ship {} is performing action: {}", ship.getId(), ship.getActionType());
+        int containersLoaded = 0;
+        if (ship.getActionType() == Action.LOAD || ship.getActionType() == Action.LOAD_UNLOAD) {
+            containersLoaded = loadContainers(ship);
+        }
+        if (ship.getActionType() == Action.UNLOAD || ship.getActionType() == Action.LOAD_UNLOAD) {
+            unloadContainers(ship);
+        }
+        logger.info("Ship {} finished action: {}", ship.getId(), ship.getActionType());
+        releasePier(pier, ship, containersLoaded);
+    }
+
+    private int loadContainers(Ship ship) throws InterruptedException {
+        logger.debug("action: " + ship.getActionType() +
+                " current amount of containers in port " + currentAmountOfContainers + " current amount of containers in ship " + ship.getCurrentAmountOfContainers());
+        int availableContainers = currentAmountOfContainers.get();
+        int containersToLoad = Math.min(availableContainers, ship.getCapacity());
+        TimeUnit.SECONDS.sleep(TIME_FOR_ONE_CONTAINER * containersToLoad);
+        currentAmountOfContainers.addAndGet(containersToLoad);
+        logger.debug("action: " + ship.getActionType() + " capacity " + ship.getCapacity());        logger.debug("action: " + ship.getActionType() +
+                " current amount of containers in port " + currentAmountOfContainers + " current amount of containers in ship " + ship.getCurrentAmountOfContainers());
+        return containersToLoad;
+    }
+
+    private void unloadContainers(Ship ship) throws InterruptedException {
+        logger.debug("action: " + ship.getActionType() +
+                " current amount of containers in port " + currentAmountOfContainers + " current amount of containers in ship " + ship.getCurrentAmountOfContainers());
+        int containersToUnload = ship.getCurrentAmountOfContainers();
+        TimeUnit.SECONDS.sleep(TIME_FOR_ONE_CONTAINER * containersToUnload);
+        currentAmountOfContainers.addAndGet(-containersToUnload);
+        logger.debug("unloadContainers: capacity " + ship.getCapacity());
+        logger.debug("action: " + ship.getActionType() +
+                " current amount of containers in port " + currentAmountOfContainers + " current amount of containers in ship " + ship.getCurrentAmountOfContainers());
+    }
+
+    private void releasePier(Pier pier, Ship ship, int containersLoaded) {
+        if (ship.getActionType() == Action.UNLOAD) {
+            currentAmountOfContainers.addAndGet(-containersLoaded);
+            logger.debug("pier released. " +
+                    " current amount of containers in port " + currentAmountOfContainers + " current amount of containers in ship " + ship.getCurrentAmountOfContainers());
+        }
+        pier.setAvailable(true);
     }
 }

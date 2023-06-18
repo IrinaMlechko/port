@@ -1,10 +1,15 @@
 package by.mlechka.port.entity;
 
+import by.mlechka.port.exception.CustomException;
 import by.mlechka.port.type.Action;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 public class Ship extends Thread{
+    static Logger logger = LogManager.getLogger();
     private UUID id;
     private int currentAmountOfContainers;
     private int capacity;
@@ -17,18 +22,27 @@ public class Ship extends Thread{
         this.actionType = actionType;
     }
 
-    @Override
-    public void run(){
-        Port port = Port.getInstance();
-        Pier pier = port.takeFreePier();
-        doAction(pier);
-        port.putFreePier(pier);
+    public Action getActionType() {
+        return actionType;
     }
 
-    private void doAction(Pier pier){
+    public int getCapacity() {
+        return capacity;
+    }
+
+    public int getCurrentAmountOfContainers() {
+        return currentAmountOfContainers;
+    }
+
+    @Override
+    public void run() {
+        logger.debug("run started. ship " + this.id);
         Port port = Port.getInstance();
-        for(int i=0; i< amountOfContainers; i++){
-            if(actionType == Action.LOAD)
+        try {
+            port.processShip(this);
+        } catch (InterruptedException e) {
+            logger.error("Ship {} was interrupted.", id);
+            Thread.currentThread().interrupt();
         }
     }
 }
