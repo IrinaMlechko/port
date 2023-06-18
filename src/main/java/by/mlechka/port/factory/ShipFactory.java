@@ -36,7 +36,7 @@ public class ShipFactory {
             currentAmountOfContainers = capacity;
         }
         Ship ship = new Ship(currentAmountOfContainers, capacity, action);
-        logger.info(String.format("Ship with max capacity %s has been created and loaded with %s containers", capacity, currentAmountOfContainers));
+        logger.info(String.format("Ship with max capacity %s has been created and loaded with %s containers with a task %s", capacity, currentAmountOfContainers, action));
         return ship;
     }
 

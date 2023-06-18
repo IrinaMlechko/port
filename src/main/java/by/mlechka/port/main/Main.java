@@ -12,7 +12,7 @@ public class Main {
 
     public static void main(String[] args) throws CustomException {
         ShipFactory shipFactory = new ShipFactory();
-        List<Ship> ships = shipFactory.createShips(10,5, 10);
+        List<Ship> ships = shipFactory.createShips(5,5, 10);
         for(Ship ship:ships){
             ship.start();
         }

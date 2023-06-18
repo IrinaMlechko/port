@@ -21,6 +21,9 @@ public class Ship extends Thread{
         this.capacity = capacity;
         this.actionType = actionType;
     }
+    public UUID getShipId() {
+        return id;
+    }
 
     public Action getActionType() {
         return actionType;
@@ -34,9 +37,12 @@ public class Ship extends Thread{
         return currentAmountOfContainers;
     }
 
+    public void setCurrentAmountOfContainers(int currentAmountOfContainers) {
+        this.currentAmountOfContainers = currentAmountOfContainers;
+    }
+
     @Override
     public void run() {
-        logger.debug("run started. ship " + this.id);
         Port port = Port.getInstance();
         try {
             port.processShip(this);
