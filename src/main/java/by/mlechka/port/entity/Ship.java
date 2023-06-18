@@ -1,14 +1,12 @@
 package by.mlechka.port.entity;
 
-import by.mlechka.port.exception.CustomException;
 import by.mlechka.port.type.Action;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
-public class Ship extends Thread{
+public class Ship extends Thread {
     static Logger logger = LogManager.getLogger();
     private UUID id;
     private int currentAmountOfContainers;
@@ -21,6 +19,7 @@ public class Ship extends Thread{
         this.capacity = capacity;
         this.actionType = actionType;
     }
+
     public UUID getShipId() {
         return id;
     }
