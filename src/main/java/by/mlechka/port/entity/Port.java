@@ -14,16 +14,18 @@ import java.util.concurrent.locks.ReentrantLock;
 public class Port {
     public static final int AMOUNT_OF_PIERS = 3;
     public static final int TIME_FOR_ONE_CONTAINER = 2;
+    public static final int DEFAULT_CAPACITY = 30;
     static Logger logger = LogManager.getLogger();
     private static Port instance;
     private static Lock lock = new ReentrantLock(true);
     private static AtomicBoolean isCreated = new AtomicBoolean();
     private ArrayDeque<Pier> piers;
-    private int capacity = 30;
+    private int capacity;
     private AtomicInteger currentAmountOfContainers = new AtomicInteger(10);
     private Lock pierLock = new ReentrantLock();
 
     public Port() {
+        capacity = DEFAULT_CAPACITY;
         piers = new ArrayDeque<>(AMOUNT_OF_PIERS);
         for (int i = 0; i < AMOUNT_OF_PIERS; i++) {
             Pier pier = new Pier();
