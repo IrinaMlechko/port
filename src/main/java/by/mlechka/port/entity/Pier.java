@@ -1,6 +1,5 @@
 package by.mlechka.port.entity;
 
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Pier {

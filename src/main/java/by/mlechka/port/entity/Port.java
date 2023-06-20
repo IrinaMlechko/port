@@ -105,14 +105,14 @@ public class Port {
         Action actionType = ship.getActionType();
         if (actionType == Action.LOAD) {
             int availableContainers = currentAmountOfContainers.get();
-            return availableContainers >= ship.getCapacity();
+            return availableContainers >= ship.CAPACITY;
         } else if (actionType == Action.UNLOAD) {
             int availableSpace = CAPACITY - currentAmountOfContainers.get();
             return availableSpace >= ship.getCurrentAmountOfContainers();
         } else if (actionType == Action.LOAD_UNLOAD) {
             int availableSpace = CAPACITY - currentAmountOfContainers.get();
             int availableContainers = currentAmountOfContainers.get();
-            return availableContainers >= ship.getCapacity() && availableSpace >= ship.getCurrentAmountOfContainers();
+            return availableContainers >= ship.CAPACITY && availableSpace >= ship.getCurrentAmountOfContainers();
         }
         return false;
     }
@@ -134,11 +134,11 @@ public class Port {
         logger.debug("ship " + ship.getShipId() + " action: " + ship.getActionType() +
                 " current amount of containers in port " + currentAmountOfContainers + " current amount of containers in ship " + ship.getCurrentAmountOfContainers());
         int availableContainers = currentAmountOfContainers.get();
-        int containersToLoad = Math.min(availableContainers, ship.getCapacity());
+        int containersToLoad = Math.min(availableContainers, ship.CAPACITY);
         TimeUnit.SECONDS.sleep(TIME_FOR_ONE_CONTAINER * containersToLoad);
         currentAmountOfContainers.addAndGet(-containersToLoad);
         ship.setCurrentAmountOfContainers(containersToLoad);
-        logger.debug("ship " + ship.getShipId() + " action: " + ship.getActionType() + " capacity " + ship.getCapacity());        logger.debug("action: " + ship.getActionType() +
+        logger.debug("ship " + ship.getShipId() + " action: " + ship.getActionType() + " capacity " + ship.CAPACITY);        logger.debug("action: " + ship.getActionType() +
                 " current amount of containers in port " + currentAmountOfContainers + " current amount of containers in ship " + ship.getCurrentAmountOfContainers());
         return containersToLoad;
     }
