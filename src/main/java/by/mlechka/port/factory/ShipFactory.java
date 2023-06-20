@@ -8,7 +8,8 @@ import org.apache.logging.log4j.Logger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.ThreadLocalRandom;
+
+import static by.mlechka.port.entity.Ship.CAPACITY;
 
 public class ShipFactory {
     static Logger logger = LogManager.getLogger();
@@ -20,23 +21,21 @@ public class ShipFactory {
         return actions[index];
     }
 
-    public List<Ship> createShips(int amount, int minCapacity, int maxCapacity) {
+    public List<Ship> createShips(int amount) {
         List<Ship> ships = new ArrayList<>();
-        int capacity = ThreadLocalRandom.current().nextInt(minCapacity, maxCapacity + 1);
         for (int i = 0; i < amount; i++) {
-            ships.add(createShip(capacity, getRandomAction()));
+            ships.add(createShip(i + 10, getRandomAction()));
         }
         return ships;
     }
 
-    public Ship createShip(int capacity, Action action) {
+    public Ship createShip(int id, Action action) {
         int currentAmountOfContainers = 0;
-
         if (action == Action.UNLOAD || action == Action.LOAD_UNLOAD) {
-            currentAmountOfContainers = capacity;
+            currentAmountOfContainers = CAPACITY;
         }
-        Ship ship = new Ship(currentAmountOfContainers, capacity, action);
-        logger.info(String.format("Ship with max capacity %s has been created and loaded with %s containers with a task %s", capacity, currentAmountOfContainers, action));
+        Ship ship = new Ship(id, currentAmountOfContainers, action);
+        logger.info(String.format("Ship with max capacity %s has been created and loaded with %s containers with a task %s", CAPACITY, currentAmountOfContainers, action));
         return ship;
     }
 

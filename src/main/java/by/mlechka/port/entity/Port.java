@@ -12,23 +12,21 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class Port {
+    static Logger logger = LogManager.getLogger();
     public static final int AMOUNT_OF_PIERS = 3;
     public static final int TIME_FOR_ONE_CONTAINER = 2;
-    public static final int DEFAULT_CAPACITY = 30;
-    static Logger logger = LogManager.getLogger();
+    public static final int CAPACITY = 30;
     private static Port instance;
     private static Lock lock = new ReentrantLock(true);
     private static AtomicBoolean isCreated = new AtomicBoolean();
     private ArrayDeque<Pier> piers;
-    private int capacity;
     private AtomicInteger currentAmountOfContainers = new AtomicInteger(10);
     private Lock pierLock = new ReentrantLock();
 
     public Port() {
-        capacity = DEFAULT_CAPACITY;
         piers = new ArrayDeque<>(AMOUNT_OF_PIERS);
         for (int i = 0; i < AMOUNT_OF_PIERS; i++) {
-            Pier pier = new Pier();
+            Pier pier = new Pier(i+1);
             piers.add(pier);
         }
     }
@@ -109,10 +107,10 @@ public class Port {
             int availableContainers = currentAmountOfContainers.get();
             return availableContainers >= ship.getCapacity();
         } else if (actionType == Action.UNLOAD) {
-            int availableSpace = capacity - currentAmountOfContainers.get();
+            int availableSpace = CAPACITY - currentAmountOfContainers.get();
             return availableSpace >= ship.getCurrentAmountOfContainers();
         } else if (actionType == Action.LOAD_UNLOAD) {
-            int availableSpace = capacity - currentAmountOfContainers.get();
+            int availableSpace = CAPACITY - currentAmountOfContainers.get();
             int availableContainers = currentAmountOfContainers.get();
             return availableContainers >= ship.getCapacity() && availableSpace >= ship.getCurrentAmountOfContainers();
         }

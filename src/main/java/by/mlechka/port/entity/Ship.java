@@ -4,32 +4,25 @@ import by.mlechka.port.type.Action;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.util.UUID;
-
 public class Ship extends Thread {
+    public static final int CAPACITY = 10;
     static Logger logger = LogManager.getLogger();
-    private UUID id;
+    private int id;
     private int currentAmountOfContainers;
-    private int capacity;
     private Action actionType;
 
-    public Ship(int currentAmountOfContainers, int capacity, Action actionType) {
-        this.id = UUID.randomUUID();
+    public Ship(int id, int currentAmountOfContainers, Action actionType) {
+        this.id = id;
         this.currentAmountOfContainers = currentAmountOfContainers;
-        this.capacity = capacity;
         this.actionType = actionType;
     }
 
-    public UUID getShipId() {
+    public int getShipId() {
         return id;
     }
 
     public Action getActionType() {
         return actionType;
-    }
-
-    public int getCapacity() {
-        return capacity;
     }
 
     public int getCurrentAmountOfContainers() {
