@@ -5,9 +5,12 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayDeque;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -15,13 +18,14 @@ public class Port {
     static Logger logger = LogManager.getLogger();
     public static final int AMOUNT_OF_PIERS = 3;
     public static final int TIME_FOR_ONE_CONTAINER = 2;
-    public static final int CAPACITY = 30;
+    public static final int CAPACITY = 50;
     private static Port instance;
     private static Lock lock = new ReentrantLock(true);
     private static AtomicBoolean isCreated = new AtomicBoolean();
     private ArrayDeque<Pier> piers;
     private AtomicInteger currentAmountOfContainers = new AtomicInteger(10);
     private Lock pierLock = new ReentrantLock();
+    private Condition pierIsFree = lock.newCondition();
 
     public Port() {
         piers = new ArrayDeque<>(AMOUNT_OF_PIERS);
@@ -38,6 +42,7 @@ public class Port {
                 if (!isCreated.get()) {
                     instance = new Port();
                     isCreated.set(true);
+                    instance.scheduleTimerTask();
                 }
             } finally {
                 lock.unlock();
@@ -46,60 +51,46 @@ public class Port {
         return instance;
     }
 
-    public Pier acquirePier() throws InterruptedException {
-        pierLock.lock();
+    public Pier getPier() throws InterruptedException {
+        lock.lock();
         try {
-            return getAvailablePier();
+            while (piers.isEmpty()) {
+                pierIsFree.await();
+            }
+            return piers.poll();
         } finally {
-            pierLock.unlock();
+            lock.unlock();
         }
     }
 
     public void releasePier(Pier pier) {
-        pierLock.lock();
+        lock.lock();
         try {
-            pier.setAvailable(true);
+            piers.add(pier);
+            pierIsFree.signal();
         } finally {
-            pierLock.unlock();
+            lock.unlock();
         }
-    }
-
-    private Pier getAvailablePier() {
-        for (Pier pier : piers) {
-            if (pier.isAvailable()) {
-                pier.setAvailable(false);
-                return pier;
-            }
-        }
-        return null;
     }
 
     public void processShip(Ship ship) throws InterruptedException {
-        int shipsRemaining = 1;
-
-        while (shipsRemaining > 0) {
-            if (!isActionAllowed(ship)) {
-                logger.info("Ship {} is waiting for action: {}", ship.getShipId(), ship.getActionType());
-                TimeUnit.SECONDS.sleep(1);
-                continue;
-            }
-
             Pier pier = null;
             try {
-                pier = acquirePier();
+                pier = getPier();
                 if (pier != null) {
                     logger.info(String.format("Ship with id %s docked to the pier %s", ship.getShipId(), pier.getId()));
+                    if (!isActionAllowed(ship)) {
+                        logger.info("Ship {} is waiting for action: {}", ship.getShipId(), ship.getActionType());
+                        TimeUnit.SECONDS.sleep(1);
+                    }
                     performAction(ship, pier);
-                    shipsRemaining--;
                 }
             } finally {
                 if (pier != null) {
                     pier.setAvailable(true);
                 }
             }
-        }
     }
-
 
     private boolean isActionAllowed(Ship ship) {
         Action actionType = ship.getActionType();
@@ -127,7 +118,7 @@ public class Port {
             unloadContainers(ship);
         }
         logger.info("Ship {} finished action: {}", ship.getShipId(), ship.getActionType());
-        releasePier(pier, ship, containersLoaded);
+        releasePier(pier);
     }
 
     private int loadContainers(Ship ship) throws InterruptedException {
@@ -135,8 +126,11 @@ public class Port {
                 " current amount of containers in port " + currentAmountOfContainers + " current amount of containers in ship " + ship.getCurrentAmountOfContainers());
         int availableContainers = currentAmountOfContainers.get();
         int containersToLoad = Math.min(availableContainers, ship.CAPACITY);
+        logger.debug("Loading: Amount of containers to load " + containersToLoad);
         TimeUnit.SECONDS.sleep(TIME_FOR_ONE_CONTAINER * containersToLoad);
+        logger.debug("Loading: Amount of containers in port before " + currentAmountOfContainers);
         currentAmountOfContainers.addAndGet(-containersToLoad);
+        logger.debug("Loading: Amount of containers in port after " + currentAmountOfContainers);
         ship.setCurrentAmountOfContainers(containersToLoad);
         logger.debug("ship " + ship.getShipId() + " action: " + ship.getActionType() + " capacity " + ship.CAPACITY);        logger.debug("action: " + ship.getActionType() +
                 " current amount of containers in port " + currentAmountOfContainers + " current amount of containers in ship " + ship.getCurrentAmountOfContainers());
@@ -147,19 +141,43 @@ public class Port {
         logger.debug("ship " + ship.getShipId() + " action: " + ship.getActionType() +
                 " current amount of containers in port " + currentAmountOfContainers + " current amount of containers in ship " + ship.getCurrentAmountOfContainers());
         int containersToUnload = ship.getCurrentAmountOfContainers();
+        logger.debug("Unloading: Amount of containers to unload " + containersToUnload);
         TimeUnit.SECONDS.sleep(TIME_FOR_ONE_CONTAINER * containersToUnload);
+        logger.debug("Unloading: Amount of containers in port before " + currentAmountOfContainers);
         currentAmountOfContainers.addAndGet(containersToUnload);
+        logger.debug("Unloading: Amount of containers in port after " + currentAmountOfContainers);
         ship.setCurrentAmountOfContainers(0);
         logger.debug("ship " + ship.getShipId() + " action: " + ship.getActionType() +
                 " current amount of containers in port " + currentAmountOfContainers + " current amount of containers in ship " + ship.getCurrentAmountOfContainers());
     }
 
-    private void releasePier(Pier pier, Ship ship, int containersLoaded) {
-//        if (ship.getActionType() == Action.UNLOAD) {
-//            currentAmountOfContainers.addAndGet(-containersLoaded);
-//            logger.debug("pier released. " +
-//                    " current amount of containers in port " + currentAmountOfContainers + " current amount of containers in ship " + ship.getCurrentAmountOfContainers());
-//        }
-        pier.setAvailable(true);
+    private void scheduleTimerTask() {
+        TimerTask timerTask = new TimerTask() {
+            @Override
+            public void run() {
+                checkPortLoad();
+            }
+        };
+
+        Timer timer = new Timer(true);
+        long delay = 0L;
+        long period = TimeUnit.SECONDS.toMillis(10);
+        timer.scheduleAtFixedRate(timerTask, delay, period);
     }
+
+    private void checkPortLoad() {
+        int currentContainers = currentAmountOfContainers.get();
+        double loadPercentage = (double) currentContainers / CAPACITY;
+        if (loadPercentage >= 0.75) {
+            int containersToRemove = (int) (currentContainers * 0.5);
+            currentAmountOfContainers.addAndGet(-containersToRemove);
+            logger.info("Removing {} containers from the port due to high load", containersToRemove);
+        } else if (currentContainers == 0) {
+            int containersToAdd = (int) (CAPACITY * 0.25);
+            currentAmountOfContainers.addAndGet(containersToAdd);
+            logger.info("Adding {} containers to the port", containersToAdd);
+        }
+    }
+
 }
+
