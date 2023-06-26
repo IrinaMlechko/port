@@ -18,4 +18,9 @@ public class Pier {
     public int getId() {
         return id;
     }
+
+    public boolean isAvailable() {
+        return available.get();
+    }
+
 }

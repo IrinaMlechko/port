@@ -5,6 +5,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayDeque;
+import java.util.Optional;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -49,37 +50,53 @@ public class Port {
     }
 
     public void processShip(Ship ship) throws InterruptedException {
-        semaphore.acquire();
-        Pier pier = acquirePier();
-        try {
-            logger.info(String.format("Ship with id %s docked to the pier %s", ship.getShipId(), pier.getId()));
-            if (isActionAllowed(ship)) {
-                performAction(ship, pier);
-            } else {
-                logger.info("Ship {} is waiting for action: {}", ship.getShipId(), ship.getActionType());
-                TimeUnit.SECONDS.sleep(1);
+        Optional<Pier> optionalPier = acquirePier();
+        if(optionalPier.isPresent()) {
+            Pier pier = optionalPier.get();
+            try {
+                logger.info(String.format("Ship with id %s docked to the pier %s", ship.getShipId(), pier.getId()));
+                if (isActionAllowed(ship)) {
+                    performAction(ship, pier);
+                } else {
+                    logger.info("Ship {} is waiting for action: {}", ship.getShipId(), ship.getActionType());
+                    TimeUnit.SECONDS.sleep(1);
+                }
+            } finally {
+                releasePier(pier);
             }
+        }
+    }
+
+    public Optional<Pier> acquirePier() throws InterruptedException {
+        semaphore.acquire();
+        pierLock.lock();
+        try {
+            return getAvailablePier();
         } finally {
-            releasePier(pier);
+            pierLock.unlock();
+        }
+    }
+
+    public void releasePier(Pier pier) {
+        pierLock.lock();
+        try {
+            pier.setAvailable(true);
+        } finally {
+            pierLock.unlock();
             semaphore.release();
         }
     }
 
-    private Pier acquirePier() throws InterruptedException {
-        synchronized (piers) {
-            while (piers.isEmpty()) {
-                piers.wait();
+    private Optional<Pier> getAvailablePier() {
+        for (Pier pier : piers) {
+            if (pier.isAvailable()) {
+                pier.setAvailable(false);
+                return Optional.of(pier);
             }
-            return piers.poll();
         }
+        return Optional.empty();
     }
 
-    private void releasePier(Pier pier) {
-        synchronized (piers) {
-            piers.add(pier);
-            piers.notify();
-        }
-    }
 
     private boolean isActionAllowed(Ship ship) {
         Action actionType = ship.getActionType();
