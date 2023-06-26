@@ -24,7 +24,6 @@ public class Port {
     private static AtomicBoolean isCreated = new AtomicBoolean();
     private ArrayDeque<Pier> piers;
     private AtomicInteger currentAmountOfContainers = new AtomicInteger(10);
-    private Lock pierLock = new ReentrantLock();
     private Condition pierIsFree = lock.newCondition();
 
     public Port() {

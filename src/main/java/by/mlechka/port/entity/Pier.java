@@ -11,10 +11,6 @@ public class Pier {
         this.available = new AtomicBoolean(true);
     }
 
-    public boolean isAvailable() {
-        return available.get();
-    }
-
     public void setAvailable(boolean available) {
         this.available.set(available);
     }

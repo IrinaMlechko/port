@@ -5,11 +5,12 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 public class Ship extends Thread {
-    public static final int CAPACITY = 10;
     static Logger logger = LogManager.getLogger();
+    public static final int CAPACITY = 10;
+    private final Action actionType;
     private int id;
     private int currentAmountOfContainers;
-    private Action actionType;
+
 
     public Ship(int id, int currentAmountOfContainers, Action actionType) {
         this.id = id;
